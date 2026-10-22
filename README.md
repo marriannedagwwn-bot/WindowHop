@@ -4,7 +4,7 @@
 
 [下载安装包](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) · [MIT 开源协议](LICENSE) · [参与开发](CONTRIBUTING.md) · [提交问题](https://github.com/marriannedagwwn-bot/WindowHop/issues)
 
-支持 **Apple Silicon · macOS 15 及以上**。当前版本 **0.3.1**，界面为中文。
+支持 **Apple Silicon · macOS 15 及以上**。当前版本 **0.3.2**，界面为中文。
 
 ![浅色应用图标模式](docs/images/icons-light.png)
 
@@ -37,7 +37,7 @@
 
 ## 下载与安装
 
-1. 在 [最新发布页](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) 下载 `WindowHop-0.3.1-arm64.dmg`；也提供 `WindowHop-0.3.1-arm64.zip`。
+1. 在 [最新发布页](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) 下载 `WindowHop-0.3.2-arm64.dmg`；也提供 `WindowHop-0.3.2-arm64.zip`。
 2. 打开 DMG，将 `WindowHop.app` 拖到「应用程序」。使用 ZIP 时，解压后将应用移入「应用程序」。
 3. 打开「跃窗 WindowHop」，在设置中完成下面的权限授权。
 4. 点击设置底部的「打开窗口列表」，或使用默认快捷键 **⌃⌥ Tab（Control + Option + Tab）**。
