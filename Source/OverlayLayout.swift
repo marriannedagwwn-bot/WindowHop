@@ -15,6 +15,7 @@ struct OverlayLayout: Equatable {
     let contentSize: CGSize
     let size: CGSize
     let padding: CGFloat
+    let bottomPadding: CGFloat
     let edgeInset: CGFloat
     let iconSize: CGFloat
     let fontSize: CGFloat
@@ -42,10 +43,11 @@ struct OverlayLayout: Equatable {
     }
 
     private init(tiles: [OverlayTile], rows: [[Int]], contentSize: CGSize, size: CGSize,
-                 padding: CGFloat, edgeInset: CGFloat, iconSize: CGFloat, fontSize: CGFloat,
+                 padding: CGFloat, bottomPadding: CGFloat, edgeInset: CGFloat, iconSize: CGFloat, fontSize: CGFloat,
                  tileHeight: CGFloat, viewportHeight: CGFloat, resolvedSize: String) {
         self.tiles = tiles; self.rows = rows; self.contentSize = contentSize; self.size = size
-        self.padding = padding; self.edgeInset = edgeInset; self.iconSize = iconSize
+        self.padding = padding; self.bottomPadding = bottomPadding
+        self.edgeInset = edgeInset; self.iconSize = iconSize
         self.fontSize = fontSize; self.tileHeight = tileHeight; self.viewportHeight = viewportHeight
         self.resolvedSize = resolvedSize
     }
@@ -55,11 +57,14 @@ struct OverlayLayout: Equatable {
         let isSmall = size == "small", isLarge = size == "large"
         let font: CGFloat = isSmall ? 13 : (isLarge ? 16 : 14)
         let padding: CGFloat = style == "icons" ? 25 : (style == "thumbnails" && modernGlass ? 28 : 18)
+        // The selected icon's single-line caption occupies the lower margin.
+        // Avoid reserving a second full margin below that same caption.
+        let bottomPadding = style == "icons" ? max(0, padding - ceil(font * 1.3) - 5) : padding
         let edge: CGFloat = style == "icons" ? 5 : (style == "titles" ? 7 : 12)
         let desiredIcon: CGFloat = style == "icons" ? (isSmall ? 70 : (isLarge ? 150 : 110)) :
             (style == "titles" ? (isSmall ? 18 : (isLarge ? 30 : 24)) : (isSmall ? 16 : (isLarge ? 28 : 26)))
         let contentMaxWidth = max(130, maxPanelWidth - padding * 2)
-        let contentMaxHeight = max(80, maxPanelHeight - padding * 2)
+        let contentMaxHeight = max(80, maxPanelHeight - padding - bottomPadding)
         let icon = min(desiredIcon, max(16, contentMaxWidth - edge * 2),
                        style == "icons" ? max(16, contentMaxHeight - edge * 2 - ceil(font * 1.3) - 10) : desiredIcon)
         let targetRows: CGFloat = isSmall ? 5 : (isLarge ? 3 : 4)
@@ -121,8 +126,8 @@ struct OverlayLayout: Equatable {
         let viewportHeight = min(contentMaxHeight, contentHeight)
         return OverlayLayout(tiles: windowSizes.isEmpty ? [] : tiles, rows: windowSizes.isEmpty ? [] : rows,
             contentSize: CGSize(width: widest, height: contentHeight),
-            size: CGSize(width: widest + padding * 2, height: viewportHeight + padding * 2),
-            padding: padding, edgeInset: edge, iconSize: icon, fontSize: font,
+            size: CGSize(width: widest + padding * 2, height: viewportHeight + padding + bottomPadding),
+            padding: padding, bottomPadding: bottomPadding, edgeInset: edge, iconSize: icon, fontSize: font,
             tileHeight: tileHeight, viewportHeight: viewportHeight, resolvedSize: size)
     }
 

@@ -222,7 +222,7 @@ final class OverlayController {
             effect = glass
         } else {
             let frosted = NSVisualEffectView(frame: NSRect(origin: .zero, size: model.panelSize))
-            frosted.material = .hudWindow
+            frosted.material = .popover
             frosted.blendingMode = .behindWindow
             frosted.state = .active
             hosting.translatesAutoresizingMaskIntoConstraints = false
@@ -283,6 +283,11 @@ final class OverlayController {
         surfaceView?.synchronizeContour()
         let appearance = panel?.effectiveAppearance ?? NSApp.effectiveAppearance
         model.isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if let frosted = backdrop as? NSVisualEffectView {
+            // Public legacy materials: dark (2), mediumLight (8). They retain
+            // the softer switcher appearance on macOS 15 without a tint layer.
+            frosted.material = NSVisualEffectView.Material(rawValue: model.isDark ? 2 : 8) ?? .popover
+        }
     }
 
     private func layout(for windows: [WindowRecord], screen: NSScreen) -> OverlayLayout {
@@ -661,6 +666,7 @@ private final class SearchInputField: NSTextField {
 private struct WindowOverlayView: View {
     @ObservedObject var model: OverlayModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 0) {
@@ -668,7 +674,7 @@ private struct WindowOverlayView: View {
             grid
         }
         .frame(width: model.panelSize.width, height: model.panelSize.height)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.16))
+        .background(reduceTransparency ? Color(nsColor: .windowBackgroundColor) : .clear)
         .clipShape(RoundedRectangle(cornerRadius: model.panelCornerRadius, style: .circular))
         .overlay {
             RoundedRectangle(cornerRadius: model.panelCornerRadius, style: .circular)
@@ -676,7 +682,7 @@ private struct WindowOverlayView: View {
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .bottom) {
-            if model.isDemo {
+            if model.isDemo && model.style != "icons" {
                 Text("界面演示").font(.system(size: 9)).foregroundStyle(.secondary)
                     .padding(.bottom, 3).allowsHitTesting(false)
             }
@@ -741,7 +747,9 @@ private struct WindowOverlayView: View {
             }
             .scrollIndicators(model.layout.contentSize.height > model.layout.viewportHeight ? .automatic : .hidden)
             .frame(width: model.layout.contentSize.width, height: model.layout.viewportHeight)
-            .padding(model.layout.padding)
+            .padding(.horizontal, model.layout.padding)
+            .padding(.top, model.layout.padding)
+            .padding(.bottom, model.layout.bottomPadding)
             .onChange(of: model.selected) { _, selected in reader.scrollTo(selected, anchor: .center) }
             .onChange(of: model.windows.map(\.id)) { _, _ in reader.scrollTo(model.selected, anchor: .center) }
             .onAppear { reader.scrollTo(model.selected, anchor: .center) }

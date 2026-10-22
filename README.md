@@ -4,7 +4,7 @@
 
 [下载安装包](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) · [MIT 开源协议](LICENSE) · [参与开发](CONTRIBUTING.md) · [提交问题](https://github.com/marriannedagwwn-bot/WindowHop/issues)
 
-支持 **Apple Silicon · macOS 15 及以上**。当前版本 **0.3.0**，界面为中文。
+支持 **Apple Silicon · macOS 15 及以上**。当前版本 **0.3.1**，界面为中文。
 
 ![浅色应用图标模式](docs/images/icons-light.png)
 
@@ -33,11 +33,11 @@
 
 </details>
 
-图片使用应用内的示例数据，用于展示界面。
+图片使用应用内的示例数据，用于展示布局；实际毛玻璃会随窗口背后的内容变化。更新记录见 [CHANGELOG](CHANGELOG.md)。
 
 ## 下载与安装
 
-1. 在 [最新发布页](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) 下载 `WindowHop-0.3.0-arm64.dmg`；也提供 `WindowHop-0.3.0-arm64.zip`。
+1. 在 [最新发布页](https://github.com/marriannedagwwn-bot/WindowHop/releases/latest) 下载 `WindowHop-0.3.1-arm64.dmg`；也提供 `WindowHop-0.3.1-arm64.zip`。
 2. 打开 DMG，将 `WindowHop.app` 拖到「应用程序」。使用 ZIP 时，解压后将应用移入「应用程序」。
 3. 打开「跃窗 WindowHop」，在设置中完成下面的权限授权。
 4. 点击设置底部的「打开窗口列表」，或使用默认快捷键 **⌃⌥ Tab（Control + Option + Tab）**。
@@ -52,6 +52,8 @@
 | 屏幕录制 | 窗口缩略图、所选窗口的捕获图像预览 | 可选；未授权时使用应用图标 |
 
 设置中的「通用 → 系统权限」可以查看状态并打开系统授权页面。更改屏幕录制权限后，请退出并重新打开应用。重新编译或更换安装副本后，系统可能要求重新授权。
+
+如果系统开关已打开，但跃窗仍显示「尚未允许」，请在对应权限列表移除旧的 WindowHop 条目，再添加「应用程序」中的当前副本，然后退出并重新打开。当前安装包采用本地签名，升级后可能需要这一步。
 
 快捷键可改为 `⌥ Tab` 或 `⌘ Tab`；升级会沿用已有设置。若同时运行其他窗口切换工具，请避免使用相同快捷键。监听状态异常时，可在「控制」页点击「重新连接快捷键」。
 
