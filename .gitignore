@@ -1,0 +1,16 @@
+.DS_Store
+._*
+*.app/
+*.dmg
+*.zip
+*.log
+.build/
+build/
+dist/
+releases/
+.swiftpm/
+.idea/
+.vscode/
+xcuserdata/
+*.xcuserstate
+Reports/
