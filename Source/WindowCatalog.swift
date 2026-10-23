@@ -98,15 +98,12 @@ final class WindowCatalog {
                     AXUIElementSetMessagingTimeout(element, 0.08)
                     // One round trip per window instead of a separate blocking message for every property.
                     let values = Self.attributes(element, [kAXRoleAttribute, kAXSubroleAttribute,
-                        kAXPositionAttribute, kAXSizeAttribute, kAXTitleAttribute, kAXMinimizedAttribute, "AXFullScreen"])
+                        kAXPositionAttribute, kAXSizeAttribute, kAXTitleAttribute, kAXMinimizedAttribute,
+                        kAXMainAttribute, "AXFullScreen"])
                     let minimized = (values[kAXMinimizedAttribute] as? Bool) ?? false
                     if !includeMinimized && minimized { continue }
                     let fullscreen = (values["AXFullScreen"] as? Bool) ?? false
                     if !includeFullscreen && fullscreen { continue }
-                    let role = values[kAXRoleAttribute] as? String
-                    guard role == kAXWindowRole else { continue }
-                    // Utility palettes and helper controls are not document windows.
-                    if values[kAXSubroleAttribute] as? String == kAXFloatingWindowSubrole { continue }
                     var point = CGPoint.zero
                     var size = CGSize.zero
                     if let value = values[kAXPositionAttribute], CFGetTypeID(value) == AXValueGetTypeID() {
@@ -120,6 +117,16 @@ final class WindowCatalog {
                     let frame = CGRect(origin: point, size: size)
                     if screenFilter == "current", let screenFrame, !frame.intersects(screenFrame) { continue }
                     let match = Self.match(pid: app.processIdentifier, title: title, frame: frame, descriptions: descriptions)
+                    // A helper may have a WindowServer surface at a non-document level.
+                    // Looking only for level zero and accepting nil used to admit these surfaces.
+                    let backing = match ?? Self.match(pid: app.processIdentifier, title: title, frame: frame,
+                                                      descriptions: descriptions, normalLayerOnly: false)
+                    guard Self.isCandidateWindow(role: values[kAXRoleAttribute] as? String,
+                        subrole: values[kAXSubroleAttribute] as? String, title: title,
+                        isMain: values[kAXMainAttribute] as? Bool ?? false, isMinimized: minimized,
+                        isHidden: app.isHidden, isFullscreen: fullscreen,
+                        backingLayer: (backing?.entry[kCGWindowLayer as String] as? NSNumber)?.intValue,
+                        backingAlpha: (backing?.entry[kCGWindowAlpha as String] as? NSNumber)?.doubleValue) else { continue }
                     let windowID = match.flatMap { ($0.entry[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
                     if currentSpaceOnly && (windowID == nil || !visibleIDs.contains(windowID!)) { continue }
                     let id = identity(pid: app.processIdentifier, element: element)
@@ -137,10 +144,33 @@ final class WindowCatalog {
             let activeIDs = Set(records.map(\.id))
             // A preference-filtered window may return on the next invocation; keep its MRU evidence.
             if recent.count > 2048 { recent = recent.filter { activeIDs.contains($0.key) } }
-            records = Self.ordered(records, sortOrder: sortOrder, groupByApp: groupByApp,
+            records = Self.ordered(Self.deduplicated(records), sortOrder: sortOrder, groupByApp: groupByApp,
                 minimizedAtEnd: minimizedAtEnd, hiddenAtEnd: hiddenAtEnd, recent: recent, ranks: rank)
             guard request == currentRequest() else { return }
             DispatchQueue.main.async { completion(records) }
+        }
+    }
+
+    static func isCandidateWindow(role: String?, subrole: String?, title: String,
+                                  isMain: Bool, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool,
+                                  backingLayer: Int?, backingAlpha: Double?) -> Bool {
+        guard role == kAXWindowRole, subrole != kAXFloatingWindowSubrole else { return false }
+        if let layer = backingLayer, layer != 0, !isMain, !isFullscreen { return false }
+        // Minimized and hidden applications can legitimately have transparent/offscreen surfaces.
+        if let alpha = backingAlpha, alpha <= 0, !isMinimized, !isHidden, !isFullscreen { return false }
+        if subrole == kAXUnknownSubrole, title.isEmpty, !isMain, !isMinimized, !isHidden, !isFullscreen {
+            return false
+        }
+        return true
+    }
+
+    static func deduplicated(_ windows: [WindowRecord]) -> [WindowRecord] {
+        var references = Set<String>()
+        var surfaces = Set<String>()
+        return windows.filter { window in
+            guard references.insert("\(window.pid):\(window.id)").inserted else { return false }
+            guard let surface = window.windowID, surface != kCGNullWindowID else { return true }
+            return surfaces.insert("\(window.pid):\(surface)").inserted
         }
     }
 
@@ -195,11 +225,12 @@ final class WindowCatalog {
     }
 
     // Public AX does not expose a CGWindowID. Reject ambiguous matches instead of showing a different window's contents.
-    static func match(pid: pid_t, title: String, frame: CGRect, descriptions: [[String: Any]]) -> (index: Int, entry: [String: Any])? {
+    static func match(pid: pid_t, title: String, frame: CGRect, descriptions: [[String: Any]],
+                      normalLayerOnly: Bool = true) -> (index: Int, entry: [String: Any])? {
         var candidates: [(Int, [String: Any], CGFloat)] = []
         for (index, entry) in descriptions.enumerated() {
             guard (entry[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid,
-                  (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (!normalLayerOnly || (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0),
                   let bounds = entry[kCGWindowBounds as String] as? NSDictionary,
                   let rect = CGRect(dictionaryRepresentation: bounds) else { continue }
             let distance = abs(rect.minX-frame.minX) + abs(rect.minY-frame.minY) + abs(rect.width-frame.width) + abs(rect.height-frame.height)

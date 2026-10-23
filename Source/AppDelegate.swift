@@ -51,10 +51,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let args = CommandLine.arguments
         if args.contains("--self-test") { SelfTest.run(); return }
         if args.contains("--diagnose") {
-            let report: [String: Any] = ["app": "WindowHop", "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0", "accessibility": AppPermissions.accessibility,
+            var report: [String: Any] = ["app": "WindowHop", "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0", "accessibility": AppPermissions.accessibility,
                 "screenRecording": AppPermissions.screenRecording, "shortcut": preferences.shortcutLabel,
                 "architecture": "arm64", "windowFocusTested": false]
-            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]), let text = String(data: data, encoding: .utf8) { print(text) }
+            if let index = args.firstIndex(of: "--catalog-bundle"), args.indices.contains(index + 1) {
+                report["inventory"] = Diagnostics.windowInventory(bundleIdentifier: args[index + 1])
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]), let text = String(data: data, encoding: .utf8) {
+                if let index = args.firstIndex(of: "--diagnostic-output"), args.indices.contains(index + 1) {
+                    do { try data.write(to: URL(fileURLWithPath: args[index + 1]), options: .atomic) }
+                    catch { fputs("diagnostic output failed: \(error)\n", stderr) }
+                } else { print(text) }
+            }
             NSApp.terminate(nil); return
         }
         buildApplicationMenu()

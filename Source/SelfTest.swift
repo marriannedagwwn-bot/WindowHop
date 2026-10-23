@@ -24,6 +24,76 @@ enum SelfTest {
         check(WindowCatalog.match(pid: 123, title: "A", frame: rect, descriptions: [entry, entry]) == nil, "reject ambiguous windows")
         check(WindowCatalog.match(pid: 123, title: "B", frame: rect, descriptions: [entry]) == nil, "reject conflicting title")
 
+        var helperSurface = entry
+        helperSurface[kCGWindowLayer as String] = NSNumber(value: 3)
+        helperSurface[kCGWindowAlpha as String] = NSNumber(value: 0)
+        check(WindowCatalog.match(pid: 123, title: "A", frame: rect, descriptions: [helperSurface]) == nil,
+              "capture matching does not use a floating helper surface")
+        check(WindowCatalog.match(pid: 123, title: "A", frame: rect, descriptions: [helperSurface],
+                                  normalLayerOnly: false)?.entry[kCGWindowLayer as String] as? Int == 3,
+              "eligibility lookup can observe a helper's non-document layer")
+
+        func candidate(role: String? = kAXWindowRole, subrole: String? = kAXStandardWindowSubrole,
+                       title: String = "Document", main: Bool = false, minimized: Bool = false,
+                       hidden: Bool = false, fullscreen: Bool = false,
+                       layer: Int? = 0, alpha: Double? = 1) -> Bool {
+            WindowCatalog.isCandidateWindow(role: role, subrole: subrole, title: title,
+                isMain: main, isMinimized: minimized, isHidden: hidden, isFullscreen: fullscreen,
+                backingLayer: layer, backingAlpha: alpha)
+        }
+        check(!candidate(subrole: kAXDialogSubrole, title: "", alpha: 0),
+              "transparent persistent quit-prompt dialog is not a switch target")
+        check(!candidate(layer: 3), "floating non-main surface is not a document window")
+        check(!candidate(subrole: kAXDialogSubrole, title: "Prompt", layer: 3),
+              "a titled dialog does not exempt an auxiliary floating surface")
+        check(!candidate(subrole: kAXUnknownSubrole, title: ""),
+              "untitled unknown helper is excluded")
+        check(candidate(title: ""), "a real untitled standard document remains available")
+        check(candidate(subrole: kAXDialogSubrole), "ordinary dialog remains available")
+        check(candidate(subrole: kAXUnknownSubrole, title: "Custom document"),
+              "titled custom framework window remains available")
+        check(candidate(layer: nil, alpha: nil),
+              "missing CG metadata alone does not discard a standard AX window")
+        check(candidate(minimized: true, alpha: 0),
+              "transparent minimized window can still be restored")
+        check(candidate(hidden: true, alpha: 0),
+              "transparent window of a hidden app remains available")
+        check(candidate(main: true, layer: 3),
+              "an app's main document can legitimately float above normal windows")
+        check(candidate(fullscreen: true, layer: 101),
+              "fullscreen presentation is not rejected for its elevated level")
+        check(candidate(subrole: kAXUnknownSubrole, title: "", main: true),
+              "main-window evidence keeps an untitled custom document")
+        check(candidate(subrole: kAXUnknownSubrole, title: "", minimized: true, alpha: 0),
+              "minimization does not turn a custom document into a helper")
+        check(candidate(alpha: 0.01), "a translucent document is not an invisible helper")
+        check(!candidate(subrole: kAXFloatingWindowSubrole, main: true),
+              "explicit floating-panel semantics are not overridden by main status")
+        check(!candidate(role: kAXGroupRole), "non-window accessibility elements are excluded")
+
+        func inventoryWindow(_ id: String, pid: pid_t = 123, surface: CGWindowID? = nil) -> WindowRecord {
+            WindowRecord(id: id, pid: pid, windowID: surface, title: "Same title",
+                         appName: "Example", frame: rect)
+        }
+        let firstSurface = inventoryWindow("root", surface: 456)
+        let repeatedReference = inventoryWindow("root", surface: 456)
+        let surfaceAlias = inventoryWindow("alias", surface: 456)
+        check(WindowCatalog.deduplicated([firstSurface, repeatedReference, surfaceAlias]).map(\.id) == ["root"],
+              "repeated AX reference and aliases of one physical surface produce one tile")
+        check(WindowCatalog.deduplicated([firstSurface, surfaceAlias]).first === firstSurface,
+              "de-duplication retains the canonical first window reference")
+        let secondSurface = inventoryWindow("second", surface: 457)
+        check(WindowCatalog.deduplicated([firstSurface, secondSurface]).count == 2,
+              "two real windows retain separate tiles even with identical title and frame")
+        check(WindowCatalog.deduplicated([firstSurface, inventoryWindow("root", pid: 124, surface: 456)]).count == 2,
+              "AX identities and numeric CG ids are scoped to their owning process")
+        check(WindowCatalog.deduplicated([inventoryWindow("unmatched-a"), inventoryWindow("unmatched-b")]).count == 2,
+              "distinct AX windows without CG ids remain separate")
+        check(WindowCatalog.deduplicated([inventoryWindow("zero-a", surface: 0), inventoryWindow("zero-b", surface: 0)]).count == 2,
+              "null CG id is missing evidence rather than a shared surface")
+        check(WindowCatalog.deduplicated([inventoryWindow("unmatched"), inventoryWindow("unmatched")]).count == 1,
+              "duplicate AX reference is removed even without CG metadata")
+
         let controller = KeyboardController()
         var actions: [String] = []
         controller.onAction = { action in
